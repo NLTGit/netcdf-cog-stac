@@ -1,6 +1,6 @@
 # netcdf-cog-stac
 
-This repository contains example code to convert NetCDF files from an FTP site to COG and STAC files. Specifically, it was designed to convert NetCDF files from [CMIP3 and CMIP5 Climate and Hydrology Projections](https://gdo-dcp.ucllnl.org/). The resulting COG and STAC files can be written to a local directory or to AWS S3.
+This repository contains example code to convert NetCDF files from an FTP site to COG and STAC files. Specifically, it was designed to convert NetCDF files from [CMIP3 and CMIP5 Climate and Hydrology Projections](https://gdo-dcp.ucllnl.org/). The resulting COG and STAC files can be written to a local directory or to AWS S3. Also included is a Google Earth Engine dashboard that you can use to view and compare composite images, along with code to make it work with COGs.
 
 ## Common Setup
 
@@ -39,7 +39,7 @@ python -m netcdf_cog_stac -v ftp://HOST/FOLDER/FILE s3://BUCKET/
 
 For example:
 ```
-python -m netcdf_cog_stac ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/1950-2099/sresb1/sresb1.bccr_bcm2_0.1.monthly.Prcp.1950-2099.nc s3://your-output-bucket
+python -m netcdf_cog_stac -v ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/1950-2099/sresb1/sresb1.bccr_bcm2_0.1.monthly.Prcp.1950-2099.nc s3://your-output-bucket
 ```
 
 You can get more information about other options for the conversion command by running
@@ -47,3 +47,20 @@ You can get more information about other options for the conversion command by r
 ```
 python -m netcdf_cog_stac --help
 ```
+
+
+## Google Earth Engine Dashboard
+
+![Screenshot of Google Earth Engine dashboard](images/gee_dashboard.png)
+
+To use the example dashboard, run the following commands:
+```
+python -m netcdf_cog_stac -v ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/1950-2099/sresa1b/sresa1b.bccr_bcm2_0.1.monthly.Prcp.1950-2099.nc output
+python -m netcdf_cog_stac -v ftp://gdo-dcp.ucllnl.org/pub/dcp/archive/1950-2099/sresa1b/sresa1b.bccr_bcm2_0.1.monthly.Tavg.1950-2099.nc output
+```
+
+Upload the contents of the `output` folder into a [Google Cloud Storage (GCS)](https://console.cloud.google.com/storage/) bucket.
+
+To create ImageCollections out of the files in GCS, open the included [Jupyter notebook](google_earth_engine/COG_Backed_Image_Asset_Registration_into_an_ImageCollection.ipynb) into a notebook runner like [Google Colab](https://colab.research.google.com/). Change the variables that have "# CHANGE" comments. Click the Runtime menu, then Run all. You'll be prompted twice to authorize access - once for Google Earth Engine, and once for Google Cloud Platform. You'll run it twice - once with the location of the Prcp data, and once for the Tavg data. 
+
+Paste the contents of [dashboard.js](google_earth_engine/dashboard.js) into the Earth Engine Code Editor, editing the variables at the top of the code as needed to point to the Earth Engine folder that contains the ImageCollections you created. Click Run. You should now be able to interact with your map, following the instructions provided.
