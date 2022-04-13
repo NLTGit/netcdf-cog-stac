@@ -5,9 +5,7 @@ var temp = ee.ImageCollection(
   prec = ee.ImageCollection(
     "projects/example_project_folder/assets/sresa1b_ncar_pcm1_1_monthly_prcp_1950-2099"
   ),
-  points = ee.FeatureCollection(
-    "projects/example_project_folder/assets/points"
-  );
+  points = ee.FeatureCollection('WCMC/WDPA/current/points');
 /***** End of imports. If edited, may not auto-convert in the playground. *****/
 //// Constants
 var TEMP = "sresa1b_ncar_pcm1_1_monthly_tavg_1950-2099";
