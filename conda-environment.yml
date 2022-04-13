@@ -2,5 +2,4 @@ channels:
   - conda-forge
 dependencies:
   - pip
-  - GDAL~=3.4.2
   - rasterio~=1.2.6

@@ -3,40 +3,32 @@ import logging
 from dateparser.search import search_dates
 import dateutil.parser as parser
 import dateutil.relativedelta as rd
-from netCDF4 import Dataset
-from osgeo import gdal
-
-gdal.SetConfigOption('GDAL_PAM_ENABLED', 'NO')
+import rasterio
+from rio_cogeo import cogeo, cog_profiles
 
 LOG = logging.getLogger(__name__)
 
 
 def netcdf2cogs(source_file, output_dir, base_name):
     LOG.info('Converting NetCDF file to COG files')
-    netcdf_dataset = Dataset(source_file)
-    dataset_time = netcdf_dataset['/time']
+    with rasterio.open(source_file) as source:
+        source_tags = source.tags()
 
-    gdal_file = gdal.Open(source_file)
-    num_bands = gdal_file.RasterCount
+        for band in source.indexes:
+            band_tags = source.tags(band)
+            band_time = band_tags['NETCDF_DIM_time']
+            output_path = output_dir.joinpath(f'{base_name}_{band_time}.tiff')
+            band_datetime = get_band_datetime(source_tags, band_time)
 
-    for num in range(1, num_bands + 1):
-        band = gdal_file.GetRasterBand(num)
-        band_time = band.GetMetadataItem('NETCDF_DIM_time')
-        output_filename = f"{base_name}_{band_time}.tiff"
-        full_output_filename = output_dir.joinpath(output_filename)
-        band_datetime = get_band_datetime(dataset_time, band_time)
+            metadata = base_metadata(source_tags)
+            metadata['title'] = base_name
+            metadata['start_datetime'] = band_datetime
+            metadata['end_datetime'] = band_datetime
 
-        metadata = base_metadata(netcdf_dataset)
-        metadata['units'] = band.GetMetadataItem('units')
-        metadata['title'] = base_name
-        metadata['start_datetime'] = band_datetime
-        metadata['end_datetime'] = band_datetime
-        band.SetMetadata(metadata)
-
-        gdal.Translate(str(full_output_filename), gdal_file,
-                       bandList=[num], format='COG',
-                       creationOptions=['COMPRESS=LZW', 'TARGET_SRS=WGS84',
-                                        'NUM_THREADS=ALL_CPUS'])
+            cogeo.cog_translate(source, output_path, cog_profiles.get('deflate'), indexes=band,
+                                quiet=(LOG.level > logging.INFO), use_cog_driver=True,
+                                forward_band_tags=True
+                                )
 
 
 def parse_date(date_string):
@@ -76,15 +68,15 @@ def get_created_and_updated(datetimes):
         raise RuntimeError(f'Unrecognized parsed dates: {datetimes}')
 
 
-def get_band_datetime(netcdf_time, delta):
+def get_band_datetime(source_tags, delta):
     """
     Calculates the datetime specified for the raster band from NetCDF
-    :param netcdf_time: NetCDF Dataset time variable
+    :param source_tags: dict of tags from NetCDF file
     :param delta: units of offset from origin datetime
     :return: ISO formatted datetime
     """
-    unit = netcdf_time.units.split(' ')[0]
-    origin = netcdf_time.time_origin
+    unit = source_tags['time#units'].split(' ')[0]
+    origin = source_tags['time#time_origin']
     origin_dt = parser.parse(origin)
     if unit == 'days':
         datetime_delta = origin_dt+rd.relativedelta(days=int(delta))
@@ -100,14 +92,14 @@ def get_band_datetime(netcdf_time, delta):
         return datetime_iso
 
 
-def base_metadata(netcdf_dataset):
+def base_metadata(source_tags):
     """
     Creates a dictionary of global metadata for all output files
     :param netcdf_dataset: NetCDF4 Dataset object
     :return: dictionary of metadata formatted for STAC
     """
-    description = netcdf_dataset.getncattr('description')
-    parsed_creation_date = parse_date(netcdf_dataset.getncattr('creation_date'))
+    description = source_tags['NC_GLOBAL#description']
+    parsed_creation_date = parse_date(source_tags['NC_GLOBAL#creation_date'])
     creation_date_dict = get_created_and_updated(parsed_creation_date)
     metadata = {'description': description}
     if creation_date_dict.get('datetime'):
